@@ -13,7 +13,7 @@ load_dotenv()
 
 # Pattern to identify study mentions
 study_pattern = re.compile(
-    r"(?:study|research|experiment|scientists|researchers|evidence|data|findings).*?[.?!]",
+    r"(?:study|research|experiment|scientists|researchers|evidence|data|findings|et al\\.?).*?[.?!]",
     re.IGNORECASE
 )
 # Split text into sentences based on punctuation
