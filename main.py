@@ -28,8 +28,8 @@ SUPPORTED_MODELS = [
 ]
 
 API_KEY = os.getenv('OPENAI_API_KEY')
-CHUNK_SIZE = 2000  # characters per chunk
-OVERLAP = 200      # overlap between chunks
+CHUNK_SIZE = 4000  # characters per chunk
+OVERLAP = 400      # overlap between chunks
 
 # Initialize OpenAI client
 client = OpenAI(api_key=API_KEY)
