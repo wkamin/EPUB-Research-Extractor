@@ -17,7 +17,7 @@ study_pattern = re.compile(
     re.IGNORECASE
 )
 # Split text into sentences based on punctuation
-sentence_split_pattern = re.compile(r'(?<=[.!?])[\s]+')
+sentence_split_pattern = re.compile(r'(?<=[.!?])\s+')
 
 # Supported OpenAI models for different cost/length trade-offs
 SUPPORTED_MODELS = [
@@ -45,19 +45,26 @@ def load_epub_text(epub_path):
     return '\n'.join(text_parts)
 
 
-def chunk_text(text, size=CHUNK_SIZE, overlap=OVERLAP):
-    start = 0
-    length = len(text)
-    while start < length:
-        end = min(start + size, length)
-        yield text[start:end]
-        start = end - overlap if end < length else length
+def extract_research_contexts(text, pattern, window=5):
+    """
+    For each sentence containing a research keyword, extract N sentences before and after.
+    Returns a list of context strings.
+    """
+    sentences = re.split(sentence_split_pattern, text)
+    contexts = []
+    for idx, sentence in enumerate(sentences):
+        if pattern.search(sentence):
+            start = max(0, idx - window)
+            end = min(len(sentences), idx + window + 1)
+            context = ' '.join(sentences[start:end])
+            contexts.append(context)
+    return contexts
 
 
 def call_openai_for_chunk(chunk, model):
     prompt = (
-        "Extract any scientific study mentions, their findings, and recommended actions from the following text. "
-        "Return a strict JSON array of objects with keys: study, findings, recommendation and nothing else. "
+        "Extract any scientific study mentions, their findings, and a set of actionable practices or recommendations for each study from the following text. "
+        "Return a strict JSON array of objects with keys: study, findings, recommendation (where recommendation is a set of practices or actions) and nothing else. "
         "If no valid study is in the chunk, return [] exactly.\n" +
         chunk
     )
@@ -101,17 +108,16 @@ def extract_with_openai(epub_path, output_csv, model, max_chunks=None):
         raise ValueError(f"Model '{model}' not supported. Choose from: {SUPPORTED_MODELS}")
 
     full_text = load_epub_text(epub_path)
-    chunks = list(chunk_text(full_text))
-    # Filter to chunks containing study-related keywords
-    relevant_chunks = [c for c in chunks if study_pattern.search(c)]
+    # Instead of chunking, extract research contexts
+    contexts = extract_research_contexts(full_text, study_pattern, window=5)
     if max_chunks is not None and max_chunks > 0:
-        relevant_chunks = relevant_chunks[:max_chunks]
-    print(f"Total chunks: {len(chunks)}, relevant: {len(relevant_chunks)}")
+        contexts = contexts[:max_chunks]
+    print(f"Total research contexts: {len(contexts)}")
 
     json_texts = []
-    for i, chunk in enumerate(relevant_chunks, 1):
-        print(f"Processing chunk {i}/{len(relevant_chunks)} with model {model}")
-        json_texts.append(call_openai_for_chunk(chunk, model))
+    for i, context in enumerate(contexts, 1):
+        print(f"Processing context {i}/{len(contexts)} with model {model}")
+        json_texts.append(call_openai_for_chunk(context, model))
 
     records = parse_json_responses(json_texts)
     df = pd.DataFrame(records)
